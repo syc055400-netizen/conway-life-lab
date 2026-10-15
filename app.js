@@ -1,22 +1,18 @@
 import {initLogic,pauseLogic,renderLogic} from './logic.js';
 import { W,H,makeBoard,countNeighbors,nextCell,evolve,placeCells,population,stateKey } from './engine.js';
 import {CATALOG as PATTERNS,CATEGORIES,transform} from './catalog.js';
+import {mountHeartEasterEgg} from './heart.js';
 const $=id=>document.getElementById(id);
 const $$=s=>Array.from(document.querySelectorAll(s));
-let view='lab';
+let view='lab',heartAnimation=null;
 let catalogCategory='전체',stampPattern=PATTERNS.find(p=>p.id==='glider'),stampRotation=0,stampMirror=false;
 function updateRuleAnalysis(){let lonely=0,survivors=0,crowded=0,births=0;for(let y=0;y<H;y++)for(let x=0;x<W;x++){const n=countNeighbors(board,x,y,W,H,wrap);if(board[y*W+x]){if(n<2)lonely++;else if(n<=3)survivors++;else crowded++;}else if(n===3)births++;}$('rule-analysis').innerHTML=`<table><tr><th>현재 칸과 조건</th><th>개수</th><th>다음 상태</th></tr><tr><td>살아 있음 · 이웃 0 또는 1</td><td>${lonely}</td><td>죽음</td></tr><tr><td>살아 있음 · 이웃 2 또는 3</td><td>${survivors}</td><td>생존</td></tr><tr><td>살아 있음 · 이웃 4 이상</td><td>${crowded}</td><td>죽음</td></tr><tr><td>죽어 있음 · 이웃 3</td><td>${births}</td><td>탄생</td></tr></table><p>다음 세대의 살아 있는 칸 = 생존 ${survivors} + 탄생 ${births} = <b>${survivors+births}</b></p>`;}
-// A hidden decorative animation; this is deliberately outside the Life catalog.
-function heartEasterEgg(){
-  const rows=['..###...###..','.#####.#####.','#############','#############','#############','.###########.','..#########..','...#######...','....#####....','.....###.....','......#......'];
-  const pixels=rows.flatMap((row,y)=>Array.from(row,(cell,x)=>cell==='#'?`<rect x="${x}" y="${y}" width=".92" height=".92"/>`:'')).join('');
-  return `<article class="heart-easter-egg" aria-label="하트 이스터 에그"><svg class="easter-egg-heart" viewBox="-1 -1 15 13" role="img" aria-label="빨간 픽셀 하트">${pixels}</svg><h2>하트</h2></article>`;
-}
 function renderCatalog(){
+  heartAnimation?.destroy();heartAnimation=null;
   const q=$('catalog-search').value.trim().toLowerCase(),isHeart=q==='하트';
   $('catalog-filters').innerHTML=CATEGORIES.map(c=>`<button data-category="${c}" class="${c===catalogCategory?'active':''}" aria-pressed="${c===catalogCategory}">${c}</button>`).join('');
   document.querySelector('#view-catalog .model-note').hidden=isHeart;
-  if(isHeart){$('catalog-count').textContent='이스터 에그를 찾았어요.';$('catalog-cards').innerHTML=heartEasterEgg();return;}
+  if(isHeart){$('catalog-count').textContent='이스터 에그를 찾았어요.';heartAnimation=mountHeartEasterEgg($('catalog-cards'));if(view==='catalog')heartAnimation.resume();return;}
   const list=PATTERNS.filter(p=>(catalogCategory==='전체'||p.category===catalogCategory)&&`${p.name} ${p.desc} ${p.id}`.toLowerCase().includes(q));
   $('catalog-count').textContent=`${list.length}개 패턴 · 총 ${PATTERNS.length}개`;
   $('catalog-cards').innerHTML=list.map(p=>`<article class="catalog-card"><div class="catalog-image">${iconSVG(p.cells)}</div><div class="catalog-card-copy"><small>${p.category} / ${p.kind}</small><h3>${p.name}</h3><p>${p.desc}</p><div><button class="primary" data-load="${p.id}">불러오기</button><button class="secondary" data-stamp="${p.id}">추가 배치 ＋</button></div></div></article>`).join('');
@@ -108,12 +104,12 @@ function paint(p){const key=p.y*W+p.x;if(key===lastDraw)return;board[key]=drawVa
 canvas.addEventListener('pointermove',e=>{if(drawing)paint(pointerCell(e));});
 canvas.addEventListener('pointerup',()=>{drawing=false;lastDraw=null;});canvas.addEventListener('pointercancel',()=>{drawing=false;lastDraw=null;});
 
-function setView(next,push=true){if(!['lab','catalog','logic'].includes(next))next='lab';pause();pauseLogic();view=next;for(const name of ['lab','catalog','logic'])$(`view-${name}`).hidden=name!==next;$$('.nav-link').forEach(el=>{const active=el.dataset.view===next;el.classList.toggle('active',active);if(active)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});if(push)window.history.replaceState(null,'',`#${next}`);window.scrollTo({top:0,behavior:'instant'});if(next==='lab')renderSim();if(next==='logic')renderLogic();}
+function setView(next,push=true){if(!['lab','catalog','logic'].includes(next))next='lab';pause();pauseLogic();heartAnimation?.pause();view=next;for(const name of ['lab','catalog','logic'])$(`view-${name}`).hidden=name!==next;$$('.nav-link').forEach(el=>{const active=el.dataset.view===next;el.classList.toggle('active',active);if(active)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');});if(push)window.history.replaceState(null,'',`#${next}`);window.scrollTo({top:0,behavior:'instant'});if(next==='lab')renderSim();if(next==='logic')renderLogic();if(next==='catalog')heartAnimation?.resume();}
 $$('[data-view]').forEach(el=>el.addEventListener('click',()=>setView(el.dataset.view)));
 window.addEventListener('hashchange',()=>setView(location.hash.slice(1),false));
 document.addEventListener('keydown',e=>{const tag=e.target.tagName;if(e.defaultPrevented||['INPUT','SELECT','TEXTAREA','BUTTON','A'].includes(tag)||e.target.isContentEditable||$('sources-dialog').open)return;if(view==='lab'){if(e.code==='Space'){e.preventDefault();togglePlay();}if(e.key==='ArrowRight'){e.preventDefault();pause();step();}if(e.key==='ArrowLeft'){e.preventDefault();undo();}}});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{$('fullscreen').innerHTML='<span>브라우저 전체 화면을 사용해 주세요</span>';}});
 document.addEventListener('fullscreenchange',()=>{$('fullscreen').innerHTML=document.fullscreenElement?'⛶ <span>전체 화면 종료</span>':'⛶ <span>전체 화면</span>';});
 $('sources-open').addEventListener('click',()=>$('sources-dialog').showModal());$('sources-close').addEventListener('click',()=>$('sources-dialog').close());$('sources-dialog').addEventListener('click',e=>{if(e.target===$('sources-dialog')){const r=$('sources-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('sources-dialog').close();}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();pauseLogic();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){pause();pauseLogic();heartAnimation?.pause();}else if(view==='catalog')heartAnimation?.resume();});
 initLogic();renderCatalog();selectPattern(selectedPattern);setView(location.hash.slice(1)||'lab',false);
