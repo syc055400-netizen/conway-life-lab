@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff"><meta name="description" content="Conway의 생명 게임 실습. 생존 규칙, 패턴 조합, 글라이더 논리연산을 직접 확인합니다.">
+  <title>Conway의 생명 게임 · 실습</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23222222'/%3E%3Cpath d='M14 5h6v6h-6zM21 12h6v6h-6zM7 19h6v6H7zM14 19h6v6h-6zM21 19h6v6h-6z' fill='%23ffffff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="expansion.css"><link rel="stylesheet" href="logic.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header class="header">
+    <a class="brand" href="#lab">Conway의 생명 게임</a>
+    <nav aria-label="실험 화면"><button class="nav-link active" data-view="lab">생명 게임</button><button class="nav-link" data-view="catalog">패턴</button><button class="nav-link" data-view="logic">논리연산</button></nav>
+    <button class="quiet fullscreen" id="fullscreen" title="전체 화면으로 발표하기">⛶ <span>전체 화면</span></button>
+  </header>
+  <main id="main">
+    <section id="view-lab" class="view">
+      <div class="page-heading"><div><h1>생명 게임</h1><p>패턴을 고르거나 격자에 직접 그린 뒤, 한 세대씩 진행하세요.</p></div><span class="rule-badge">B3 / S23 <span>탄생 3 · 생존 2, 3</span></span></div>
+      <div class="lab-layout"><div class="simulation">
+        <div class="sim-top"><div class="sim-stats"><div><span>세대</span><strong id="generation">0</strong></div><div><span>살아 있는 칸</span><strong id="population">5</strong></div><div class="minor"><span>탄생</span><strong id="born">0</strong></div><div class="minor"><span>죽음</span><strong id="died">0</strong></div></div><span id="run-state" class="status-pill">일시 정지</span></div>
+        <div class="board-wrap"><canvas id="life-board" width="1920" height="1200" role="img" aria-label="96열 60행 생명 게임 격자. 마우스나 터치로 칸을 편집할 수 있습니다."></canvas><span class="board-label">96 × 60 <span id="boundary-label">· 바깥은 죽은 상태</span></span></div>
+        <div class="controls"><div class="control-group"><button id="play" class="primary" aria-label="자동 재생">▶ <span>시작</span></button><button id="step" class="secondary" title="오른쪽 방향키">한 세대 <span>→</span></button><button id="undo" class="icon-btn" title="이전 세대" aria-label="이전 세대">↶</button><button id="reset" class="icon-btn" title="처음 배치로" aria-label="처음 배치로">↺</button></div><label class="speed">속도 <input id="speed" type="range" min="1" max="20" value="5"><output id="speed-value">5 /초</output></label></div>
+        <div class="board-options"><div class="segmented" aria-label="격자 조작 모드"><button id="draw-mode" class="active" aria-pressed="true">✎ 그리기</button><button id="inspect-mode" aria-pressed="false">⌕ 이웃 보기</button><button id="stamp-mode" aria-pressed="false">＋ 패턴 배치</button></div><button id="random" class="quiet">무작위 배치</button><button id="clear" class="quiet">모두 지우기</button><label class="boundary">보기 <select id="zoom"><option value="1">전체 격자</option><option value="2">중앙 2배</option><option value="4">중앙 4배</option></select></label><label class="boundary">경계 <select id="boundary"><option value="fixed">바깥은 0</option><option value="wrap">양끝 연결</option></select></label></div>
+        <div id="stamp-tools" class="stamp-tools" hidden><span id="stamp-name">글라이더 추가</span><button id="stamp-rotate" class="secondary">90° 회전</button><button id="stamp-mirror" class="secondary">좌우 반사</button><button class="quiet" data-view="catalog">패턴 선택</button><small>격자를 눌러 추가합니다. 기존 칸은 유지됩니다.</small></div><div class="cell-legend"><span><i class="survivor"></i>살아 있음</span><span><i class="newborn"></i>새로 태어남</span><span><i class="dead-last"></i>이번에 죽음 · 현재 0</span></div>
+        <p class="sim-notice" id="sim-notice" aria-live="polite">시작을 누르거나, 한 세대씩 진행해 보세요.</p>
+        <details class="rule-analysis"><summary>현재 배치의 생존·죽음·탄생 조건 분석</summary><div id="rule-analysis"></div></details><div class="chart-box"><div><span>살아 있는 칸의 수</span><small>최근 180세대</small></div><svg id="population-chart" viewBox="0 0 800 90" role="img" aria-label="세대별 살아 있는 칸의 수 그래프"></svg></div>
+        <p class="keyboard-hint">SPACE 재생·정지 <span>→ 한 세대</span><span>← 이전 세대</span> <span>편집하면 새로운 0세대로 시작합니다.</span></p>
+      </div><aside class="lab-sidebar">
+        <div class="side-heading"><h2>시작 패턴</h2><span>선택하여 불러오기</span></div><div id="pattern-list" class="pattern-list"></div><button class="secondary catalog-open" data-view="catalog">패턴 36종 보기</button>
+        <div class="pattern-note"><h3 id="pattern-title">글라이더</h3><p id="pattern-description"></p><div class="ask"><span>생각해 보기</span><p id="pattern-question"></p></div></div>
+        <div id="inspector" class="inspector"><h3>이웃 수 확인</h3><p>‘이웃 보기’를 선택하고 격자를 눌러 보세요. 주변 8칸과 다음 상태를 확인할 수 있습니다.</p><div id="inspect-details" hidden></div></div>
+      </aside></div>
+      <div class="model-note"><strong>이 화면은 유한한 모델입니다.</strong><p>Conway의 원래 모델은 무한 격자입니다. 여기서는 96 × 60 격자에서 실험합니다. 확대는 중앙 일부를 보여 주며, 보이지 않는 칸도 계속 계산합니다. ‘바깥은 0’은 전체 격자 밖을 죽은 상태로 고정하고, ‘양끝 연결’은 전체 격자의 좌우·상하를 연결합니다.</p></div>
+    </section>
+    <section id="view-catalog" class="view" hidden>
+      <div class="page-heading"><div><h1>패턴</h1><p>불러오면 현재 배치가 바뀝니다. 추가 배치는 기존 패턴 옆에 놓을 때 사용합니다.</p></div></div>
+      <div class="catalog-toolbar"><div id="catalog-filters" class="catalog-filters"></div><label class="search-label">검색 <input id="catalog-search" type="search" placeholder="이름 또는 설명"></label></div><p id="catalog-count" class="small" role="status" aria-live="polite"></p><div id="catalog-cards" class="catalog-cards"></div>
+      <div class="model-note"><strong>조합의 결과는 간격에 따라 달라집니다.</strong><p>패턴이 가까우면 서로의 이웃 수를 바꿉니다. 독립된 진동자의 주기는 최소공배수로 계산할 수 있지만, 충돌하는 조합은 직접 변화 과정을 확인해야 합니다. 긴 과도형과 생성기는 유한 격자의 경계 영향을 받습니다.</p></div>
+    </section>
+    <section id="view-logic" class="view" hidden>
+      <div class="page-heading"><div><h1>논리식으로 모델 만들기</h1><p>식을 입력하고 0·1 값을 정한 뒤 실행하세요. 기호와 글라이더의 움직임을 함께 봅니다.</p></div></div>
+      <form id="logic-expression-form" class="expression-form"><label class="sr-only" for="logic-expression">논리식</label><input id="logic-expression" name="expression" value="p and q" placeholder="p and q" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="500" aria-describedby="logic-expression-help logic-error"><button class="primary" type="submit">모델 만들기</button></form>
+      <div id="logic-expression-help" class="expression-examples"><span>예시</span><button type="button" data-expression="p and q">p and q</button><button type="button" data-expression="p or q">p or q</button><button type="button" data-expression="not p">not p</button><button type="button" data-expression="(p and q) or not r">(p and q) or not r</button><button type="button" data-expression="not (p or q) and r">not (p or q) and r</button><span>p · q · r · s / 괄호 · ∧ · ∨ · ¬ / 연산 순서: NOT → AND → OR</span></div>
+      <p id="logic-error" class="expression-error" role="alert" hidden></p>
+      <div class="logic-toolbar"><div class="logic-inputs"><label id="logic-p-wrap">p <button id="logic-p" class="logic-bit" aria-label="p 값 바꾸기" aria-pressed="true" data-bit="1">1</button></label><label id="logic-q-wrap">q <button id="logic-q" class="logic-bit" aria-label="q 값 바꾸기" aria-pressed="true" data-bit="1">1</button></label><label id="logic-r-wrap" hidden>r <button id="logic-r" class="logic-bit" aria-label="r 값 바꾸기" aria-pressed="false" data-bit="0">0</button></label><label id="logic-s-wrap" hidden>s <button id="logic-s" class="logic-bit" aria-label="s 값 바꾸기" aria-pressed="false" data-bit="0">0</button></label><span>누르면 0 ↔ 1</span></div><div class="logic-actions"><button id="logic-play" class="primary">실행</button><button id="logic-next" class="secondary">다음 장면</button><button id="logic-reset" class="secondary">처음으로</button></div></div>
+      <div class="simple-logic-layout"><div class="logic-symbol-panel"><h2>논리 기호</h2><div id="logic-formula" class="logic-expression-title">p ∧ q</div><div id="logic-symbol" class="logic-symbol"></div><ol id="logic-chain" class="logic-chain" aria-label="연산 순서와 실제 출력"></ol><p id="logic-current-gate" class="logic-current-gate"></p><ol class="logic-stages" aria-label="실행 과정"><li data-logic-stage="0" class="active">1. 입력 배치</li><li data-logic-stage="1">2. 이동·충돌</li><li data-logic-stage="2">3. 출력 확인</li></ol><div class="logic-scene" aria-live="polite"><h3 id="logic-scene-title">입력 배치</h3><p id="logic-scene-text"></p></div><div id="logic-result" class="logic-result" role="status">출력 대기</div><details class="logic-details"><summary>진리표 보기</summary><table id="logic-truth" aria-label="입력식의 진리표"></table></details><details class="logic-details"><summary>각 단계는 왜 192세대에 멈추나요?</summary><p>글라이더는 4세대마다 가로·세로로 한 칸씩 이동합니다. 출력 위치가 시작점에서 각각 48칸 뒤에 있어 4 × 48 = 192세대에 확인합니다.</p><p>각 연산을 192세대까지 실행한 뒤 출력값을 다음 단계에 전달합니다. 출력 창에 예상한 글라이더가 있으면 1, 창이 비어 있으면 0입니다.</p></details></div><div class="logic-grid-panel"><div class="logic-board-heading"><h2>생명 게임 모델</h2><output id="logic-gen">0 / 192세대</output></div><canvas id="logic-board" width="768" height="1008" role="img" aria-label="입력한 논리식의 글라이더 충돌 모델"></canvas><progress id="logic-progress" max="192" value="0" aria-label="진행 세대"></progress><p class="logic-board-caption">검은 칸: 살아 있음 · 점선: 이동 경로 · 사각형: 출력 위치</p></div></div>
+      <p class="logic-footnote">각 게이트는 <strong>Conway의 B3/S23 규칙</strong>으로 실행합니다. 복합식은 게이트의 실제 출력값을 읽어 다음 게이트의 입력에 전달하는 단계별 학습 모델입니다. 단계 사이 전달은 프로그램이 수행하며, 하나의 Life 격자에 모든 게이트를 연결한 회로는 아닙니다. 최대 4개 변수 · 12개 연산을 지원합니다.</p>
+    </section>
+  </main>
+  <footer><span>Conway의 생명 게임</span><button id="sources-open" class="quiet">설명·출처</button></footer>
+  <dialog id="sources-dialog"><button id="sources-close" class="dialog-close" aria-label="닫기">×</button><h2>실습 안내</h2><p>모든 세포 격자는 Conway의 B3/S23 규칙을 사용합니다. 한 세대 안에서는 모든 칸을 동시에 갱신합니다.</p><h3>경계 조건</h3><p>원래 모델은 무한 격자입니다. 이 사이트는 유한 격자를 사용하므로 가장자리에서는 결과가 달라질 수 있습니다. 생명 게임 화면의 경계 설정으로 바깥을 0으로 고정하거나 양끝을 연결할 수 있습니다.</p><h3>반복과 주기</h3><p>경계 조건이 고정된 유한 격자는 언젠가 같은 상태를 다시 거칩니다. 처음 상태로 돌아온다는 뜻은 아니며, 무한 격자의 모든 패턴에 적용되는 주장도 아닙니다.</p><h3>참고 자료</h3><p><a href="https://nicholas.carlini.com/writing/2020/digital-logic-game-of-life.html" target="_blank" rel="noopener">Nicholas Carlini, Digital Logic Gates on Conway’s Game of Life</a></p><p><a href="https://www.mathworks.com/content/dam/mathworks/mathworks-dot-com/moler/exm/chapters/life.pdf" target="_blank" rel="noopener">Cleve Moler, Experiments in MATLAB, Chapter 12: Game of Life</a></p><p><a href="https://conwaylife.com/ref/lexicon/" target="_blank" rel="noopener">Stephen Silver, Life Lexicon</a></p></dialog>
+</body>
+</html>
